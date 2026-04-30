@@ -3384,8 +3384,8 @@ INSTRUÇÕES:
 - Máximo 400 palavras, sem repetições óbvias`;
 
   try {
-    /* Usa proxy CORS para contornar bloqueio do Google Sites */
-    var resp = await fetch('https://corsproxy.io/?https://api.anthropic.com/v1/messages', {
+    /* Chamada direta à API Anthropic - funciona no GitHub Pages */
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3472,8 +3472,8 @@ async function perguntarIA(){
   var messages = [...hist, { role:'user', content: q + '\n\nContexto dos dados disponíveis se necessário:\n' + JSON.stringify(ctx?.totais||{}) }];
 
   try{
-    /* Usa proxy CORS para contornar bloqueio do Google Sites */
-    var resp = await fetch('https://corsproxy.io/?https://api.anthropic.com/v1/messages',{
+    /* Chamada direta à API Anthropic - funciona no GitHub Pages */
+    var resp = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
