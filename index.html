@@ -1728,19 +1728,15 @@ html, body { overflow-x: hidden; max-width: 100%; }
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcxIdBNNYJas7zL-_Uf46-JeofiVqzcvcld1nSUiTOdCRtirRQi92us8dkIwSh-VPQHUhOyoI3Aux-/pub?output=csv";
 
 /* ═══════════════════════════════════════════════════════════════
-   ★ ATIVAR IA NA ANÁLISE EXECUTIVA (OPCIONAL)
+   ★ ANÁLISE EXECUTIVA COM IA
    
-   Para habilitar análise com IA:
-   1. Crie uma conta em https://console.anthropic.com
-   2. Gere uma API key em Settings → API Keys
-   3. Busque por "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" neste arquivo
-      (aparece em 2 lugares — funções gerarAnaliseIA e perguntarIA)
-   4. Substitua por sua chave real (ex: 'sk-ant-api03-xxxxx')
+   A chave de API da Anthropic está configurada como variável de
+   ambiente no Netlify (ANTHROPIC_API_KEY) para manter segurança.
+   
+   A função serverless em /.netlify/functions/ia faz a ponte entre
+   o frontend e a API Claude, protegendo a chave no servidor.
    
    Custo estimado: ~US$ 0,01 por análise gerada
-   
-   IMPORTANTE: Se o dashboard for público, restrinja o acesso no
-   Google Sites (Configurações → Publicar → Pessoas específicas)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Estado ── */
