@@ -3073,13 +3073,14 @@ function renderCCTable(){
 
   var entries = Object.values(bySub).sort(function(a,b){ return (b.c+b.d)-(a.c+a.d); });
 
+  /* Totais globais REAIS (antes de qualquer filtro) para base de % correta */
+  var totalCredGlobal = allData.reduce(function(s,r){ return s + r.credito; }, 0);
+  var totalDebGlobal  = allData.reduce(function(s,r){ return s + r.debito; }, 0);
+
   /* Filtro por tipo: crédito, débito ou todos */
   if(ccViewMode === 'cred') entries = entries.filter(function(d){ return d.c > 0; });
   if(ccViewMode === 'deb')  entries = entries.filter(function(d){ return d.d > 0; });
 
-  /* Totais globais para base de % — calculados ANTES do loop */
-  var totalCredGlobal = entries.reduce(function(s,d){ return s + d.c; }, 0);
-  var totalDebGlobal  = entries.reduce(function(s,d){ return s + d.d; }, 0);
   var totN=0, totC=0, totD=0;
 
   var html = '';
@@ -3150,9 +3151,9 @@ function renderCCTable(){
     if(d.d > 0 && d.c === 0) drillRows_src = drillRows_src.filter(function(r){ return r.debito  > 0; });
     var topRows = drillRows_src.slice(0,50);
     
-    /* Calcular % do crédito e débito */
-    var pctCred = totC > 0 ? ((d.c / totC)*100).toFixed(1) + '%' : '—';
-    var pctDeb  = totD > 0 ? ((d.d / totD)*100).toFixed(1) + '%' : '—';
+    /* Calcular % do crédito e débito SOBRE O TOTAL GERAL (não filtrado) */
+    var pctCred = totalCredGlobal > 0 ? ((d.c / totalCredGlobal)*100).toFixed(1) + '%' : '—';
+    var pctDeb  = totalDebGlobal > 0 ? ((d.d / totalDebGlobal)*100).toFixed(1) + '%' : '—';
     
     var drillRows = topRows.map(function(r){
       return '<tr>'
