@@ -1681,29 +1681,12 @@ html, body { overflow-x: hidden; max-width: 100%; }
 
   <!-- Análise Executiva -->
   <div id="analysis">
-    <div class="an-hdr" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <h3>Análise Executiva</h3>
-        <span class="ins-badge" style="background:rgba(5,150,105,.1);color:var(--green);border-color:rgba(5,150,105,.2)">Gerada automaticamente</span>
-      </div>
-      <button id="btn-ia" onclick="gerarAnaliseIA()" style="display:flex;align-items:center;gap:7px;padding:7px 16px;background:linear-gradient(135deg,#059669,#1E40AF);border:none;border-radius:8px;color:#fff;font-size:11px;font-weight:700;font-family:var(--ff-body);cursor:pointer;letter-spacing:.3px;transition:opacity .2s">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="#fff" stroke-width="1.2"/><path d="M4 6.5h5M6.5 4v5" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>
-        Gerar Análise com IA
-      </button>
+    <div class="an-hdr">
+      <h3>Análise Executiva</h3>
+      <span class="an-tag">Automático</span>
     </div>
     <div class="ex-grid" id="ex-grid"></div>
     <div id="an-body"></div>
-
-    <!-- Campo de pergunta follow-up (aparece após análise IA) -->
-    <div id="ia-followup" style="display:none;margin-top:14px;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px">
-      <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Pergunte sobre os dados</div>
-      <div style="display:flex;gap:8px">
-        <input type="text" id="ia-question" placeholder="Ex: Por que setembro foi negativo? Qual CC tem mais risco?" style="flex:1;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--t1);font-family:var(--ff-body);outline:none">
-        <button onclick="perguntarIA()" style="padding:8px 16px;background:var(--green);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;font-family:var(--ff-body);cursor:pointer;white-space:nowrap">Perguntar</button>
-      </div>
-      <div id="ia-resposta" style="margin-top:10px;font-size:12px;color:var(--t2);line-height:1.7;min-height:0"></div>
-    </div>
-
     <div id="an-footer"></div>
   </div>
 
@@ -2918,13 +2901,20 @@ function chLinhas(){
   var sorted = filteredData.slice().sort(function(a,b){ return a.date - b.date; });
   var byDay  = {};
   sorted.forEach(function(r){
-    if(!byDay[r.dateKey]) byDay[r.dateKey] = { c:0, d:0 };
+    if(!byDay[r.dateKey]) byDay[r.dateKey] = { c:0, d:0, s:0 };
     byDay[r.dateKey].c += r.credito;
     byDay[r.dateKey].d += r.debito;
   });
 
+  /* Calcula saldo acumulado dia a dia */
   var keys = Object.keys(byDay).sort();
-  var n    = keys.length;
+  var saldoAcum = 0;
+  keys.forEach(function(k){
+    saldoAcum += byDay[k].c - byDay[k].d;
+    byDay[k].s = saldoAcum;
+  });
+
+  var n = keys.length;
 
   if(!n){ wrap.style.height='200px'; return; }
 
@@ -2935,6 +2925,7 @@ function chLinhas(){
 
   var dataC = keys.map(function(k){ return byDay[k].c; });
   var dataD = keys.map(function(k){ return byDay[k].d; });
+  var dataS = keys.map(function(k){ return byDay[k].s; });
 
   /* Marcadores: visíveis mas discretos */
   var ptR = n > 45 ? 0 : n > 20 ? 2 : 4;
@@ -2973,6 +2964,21 @@ function chLinhas(){
           borderColor:          'rgba(220,38,38,1)',
           backgroundColor:      'rgba(220,38,38,.08)',
           pointBackgroundColor: 'rgba(220,38,38,1)',
+          pointBorderColor:     '#fff',
+          pointBorderWidth:     1,
+          pointRadius:          ptR,
+          pointHoverRadius:     ptH,
+          borderWidth: 2.5,
+          tension: .3,
+          fill: true,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Saldo Acumulado',
+          data: dataS,
+          borderColor:          'rgba(30,64,175,1)',
+          backgroundColor:      'rgba(30,64,175,.08)',
+          pointBackgroundColor: 'rgba(30,64,175,1)',
           pointBorderColor:     '#fff',
           pointBorderWidth:     1,
           pointRadius:          ptR,
@@ -3039,7 +3045,8 @@ function chLinhas(){
   /* Legenda manual */
   document.getElementById('ch-linhas-leg').innerHTML = [
     { c:'rgba(5,150,105,1)',  l:'Crédito' },
-    { c:'rgba(220,38,38,1)', l:'Débito'  },
+    { c:'rgba(220,38,38,1)',  l:'Débito'  },
+    { c:'rgba(30,64,175,1)',  l:'Saldo Acumulado' },
   ].map(function(i){
     return '<span style="display:flex;align-items:center;gap:6px;color:var(--t2);font-size:11px">'
          + '<span style="height:0;border-top:2.5px solid '+i.c
