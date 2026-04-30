@@ -3384,19 +3384,15 @@ INSTRUÇÕES:
 - Máximo 400 palavras, sem repetições óbvias`;
 
   try {
-    /* Chamada direta à API Anthropic - funciona no GitHub Pages */
-    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+    /* Chama função Netlify serverless (chave API protegida no servidor) */
+    var resp = await fetch('/.netlify/functions/ia', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': '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',
-        'anthropic-version': '2023-06-01'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        stream: true,
-        messages: [{ role: 'user', content: prompt }]
+        prompt: prompt,
+        stream: true
       })
     });
 
@@ -3404,41 +3400,15 @@ INSTRUÇÕES:
       var errorText = 'Erro ' + resp.status;
       if(resp.status === 401) errorText = '⚠ Chave de API não configurada ou inválida';
       else if(resp.status === 429) errorText = 'Limite de uso excedido';
+      else if(resp.status === 500) errorText = '⚠ Erro no servidor. Verifique as configurações.';
       throw new Error(errorText);
     }
 
-    /* Streaming */
-    body.innerHTML = '<div id="ia-stream" style="font-size:13px;color:var(--t1);line-height:1.8;white-space:pre-wrap"></div>';
-    var streamEl = document.getElementById('ia-stream');
-    var reader   = resp.body.getReader();
-    var decoder  = new TextDecoder();
-    var full = '';
-
-    while(true){
-      var {done, value} = await reader.read();
-      if(done) break;
-      var chunk = decoder.decode(value, {stream:true});
-      var lines = chunk.split('\n');
-      for(var line of lines){
-        if(!line.startsWith('data: ')) continue;
-        var data = line.slice(6).trim();
-        if(data === '[DONE]') break;
-        try{
-          var j = JSON.parse(data);
-          if(j.type==='content_block_delta' && j.delta?.text){
-            full += j.delta.text;
-            streamEl.textContent = full;
-          }
-        } catch(e){}
-      }
-    }
-
-    /* Formata o resultado final em HTML */
-    var html = full
-      .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-      .replace(/^(\d+\).*)/gm,'<div style="margin-top:12px;font-weight:600;color:var(--t1)">$1</div>')
-      .replace(/^-\s(.+)/gm,'<div style="padding:2px 0 2px 12px;border-left:2px solid var(--border);margin:3px 0;color:var(--t2)">$1</div>');
-    body.innerHTML = '<div style="font-size:13px;line-height:1.8;color:var(--t2)">' + html + '</div>';
+    /* Resposta da função Netlify */
+    var data = await resp.json();
+    var texto = data.content?.[0]?.text || 'Erro ao processar resposta';
+    
+    body.innerHTML = '<div style="font-size:13px;color:var(--t1);line-height:1.8;white-space:pre-wrap">' + texto.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + '</div>';
 
     if(fup) fup.style.display = 'block';
     btn.textContent = '↻ Gerar novamente';
@@ -3446,7 +3416,6 @@ INSTRUÇÕES:
 
     /* Guarda contexto para follow-up */
     window._iaContext = ctx;
-    window._iaHistory = [{ role:'user', content:prompt },{ role:'assistant', content:full }];
 
   } catch(e){
     body.innerHTML = '<div style="color:var(--red);font-size:12px;padding:12px">Erro ao chamar a IA: ' + e.message + '. Verifique o Console (F12).</div>';
