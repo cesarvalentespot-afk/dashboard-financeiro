@@ -3441,18 +3441,24 @@ async function perguntarIA(){
   var messages = [...hist, { role:'user', content: q + '\n\nContexto dos dados disponíveis se necessário:\n' + JSON.stringify(ctx?.totais||{}) }];
 
   try{
-    /* Chamada direta à API Anthropic - funciona no GitHub Pages */
-    var resp = await fetch('https://api.anthropic.com/v1/messages',{
+    /* Chama função Netlify para follow-up */
+    var resp = await fetch('/.netlify/functions/ia',{
       method:'POST',
       headers:{
-        'Content-Type':'application/json',
-        'x-api-key': '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',
-        'anthropic-version': '2023-06-01'
+        'Content-Type':'application/json'
       },
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:600, messages })
+      body: JSON.stringify({ 
+        prompt: q + '\n\nContexto dos dados disponíveis se necessário:\n' + JSON.stringify(ctx?.totais||{}),
+        stream: false 
+      })
     });
+    
+    if(!resp.ok){
+      throw new Error('Erro ' + resp.status + ': ' + (await resp.text()));
+    }
+    
     var j = await resp.json();
-    var txt = (j.content||[]).map(x=>x.text||'').join('');
+    var txt = j.content?.[0]?.text || 'Erro ao processar resposta';
     resEl.innerHTML = '<div style="padding:10px;background:var(--surface);border-radius:6px;border-left:2px solid var(--green)">' + txt.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>') + '</div>';
     resEl.style.color = 'var(--t1)';
     window._iaHistory = [...messages, { role:'assistant', content:txt }];
