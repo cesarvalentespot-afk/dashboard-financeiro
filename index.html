@@ -1081,14 +1081,15 @@ html, body { overflow-x: hidden; max-width: 100%; }
 
 /* Atalhos de período rápido */
 .quick-period {
-  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px;
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;
 }
 .qp-btn {
-  flex: 1; min-width: 36px; padding: 5px 0;
+  flex: 1; min-width: 48px; padding: 6px 8px;
   font-size: 10px; font-weight: 600; font-family: var(--ff-body);
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: 6px; color: var(--t2); cursor: pointer;
   text-align: center; transition: all .15s;
+  white-space: nowrap;
 }
 .qp-btn:hover { border-color: var(--green); color: var(--green); }
 .qp-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
@@ -1345,6 +1346,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <button class="qp-btn" onclick="quickPeriod('mes')">Este mês</button>
       <button class="qp-btn" onclick="quickPeriod('ano')">Este ano</button>
       <button class="qp-btn" onclick="quickPeriod('tudo')">Tudo</button>
+    </div>
     </div>
     <div class="fg" style="margin-top:6px">
       <div class="fg-label">Data inicial</div>
@@ -1705,11 +1707,11 @@ html, body { overflow-x: hidden; max-width: 100%; }
     <div class="ins-grid" id="ins-grid"></div>
   </div>
 
-  <!-- Auditoria de Dados -->
+  <!-- Críticas Fluxo de Caixa -->
   <div id="auditoria" style="margin-top:32px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div>
-        <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--t1)">🔍 Auditoria de Dados</h3>
+        <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--t1)">🔍 Críticas Fluxo de Caixa</h3>
         <div style="font-size:11px;color:var(--t3);margin-top:4px">Verificação automática de inconsistências</div>
       </div>
       <div id="audit-status-badge"></div>
@@ -2367,7 +2369,7 @@ function renderKPIs(){
   var totC = d.reduce((s,r) => s + r.credito, 0);
   var totD = d.reduce((s,r) => s + r.debito,  0);
   var liq  = totC - totD;
-  var sal  = [...allData].sort((a,b) => b.date - a.date)[0]?.saldo ?? 0;
+  var sal  = d.length > 0 ? [...d].sort((a,b) => b.date - a.date)[0]?.saldo ?? 0 : 0;
 
   /* ── KPIs linha 1 ── */
   document.getElementById('kv-c').textContent = R(totC);
@@ -3788,8 +3790,17 @@ function auditarDados(){
   allData.forEach((linha, index) => {
     const numeroLinha = index + 2; // +2 porque linha 1 é cabeçalho
     
-    // 1. SALDO INCONSISTENTE (crítico)
+    // LINHA 2 (index 0) = SALDO INICIAL
+    // Não valida, apenas define como ponto de partida
+    if(index === 0){
+      saldoCalculado = linha.saldo; // Pega o saldo inicial informado
+      return; // Pula para próxima linha sem validar
+    }
+    
+    // A partir da LINHA 3 (index 1): calcula saldo acumulado
     saldoCalculado += linha.credito - linha.debito;
+    
+    // 1. SALDO INCONSISTENTE (crítico)
     const diferenca = Math.abs(linha.saldo - saldoCalculado);
     
     if(diferenca > 0.01){ // Tolera diferença de 1 centavo por arredondamento
