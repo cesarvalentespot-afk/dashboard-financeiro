@@ -1457,35 +1457,29 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <div class="kpi-hint">Crédito − Débito</div>
     </div>
 
-    <div class="kpi" style="grid-column: span 1;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-        <div class="kpi-ico" style="background:rgba(23,138,221,0.1)">
-          <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+    <div class="kpi" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="width:32px;height:32px;background:rgba(23,138,221,0.1);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="15" height="15" viewBox="0 0 17 17" fill="none">
             <rect x="2" y="4" width="13" height="10" rx="1.5" stroke="#178ADD" stroke-width="1.5"/>
             <path d="M2 6.5h13M5.5 9h6M5.5 11.5h4" stroke="#178ADD" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </div>
-        <div class="kpi-label" style="margin:0;font-size:12px">Evolução de Saldo</div>
+        <div style="font-size:11px;font-weight:600;color:var(--t2)">Evolução de Saldo</div>
       </div>
       
-      <div style="margin-bottom:12px">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.3px">Saldo Inicial</div>
-        <div style="display:flex;align-items:baseline;gap:6px">
-          <div style="font-size:16px;font-weight:600;color:var(--t2)" id="kv-si">—</div>
-          <div style="font-size:9px;color:var(--t3)" id="kv-si-hint">—</div>
-        </div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:9px;color:var(--t3);margin-bottom:2px">Inicial <span id="kv-si-hint" style="opacity:0.6">—</span></div>
+        <div style="font-size:15px;font-weight:600;color:var(--t2)" id="kv-si">—</div>
       </div>
       
-      <div style="background:rgba(23,138,221,0.08);border-radius:8px;padding:10px;margin-bottom:10px">
-        <div style="font-size:10px;color:#178ADD;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.3px;font-weight:600">Saldo Final</div>
-        <div style="display:flex;align-items:baseline;gap:6px">
-          <div style="font-size:22px;font-weight:700;color:#178ADD" id="kv-sf">—</div>
-          <div style="font-size:9px;color:#178ADD;opacity:0.7" id="kv-sf-hint">—</div>
-        </div>
+      <div style="background:rgba(23,138,221,0.08);border-radius:6px;padding:8px;margin-bottom:8px">
+        <div style="font-size:9px;color:#178ADD;margin-bottom:2px;font-weight:600">Final <span id="kv-sf-hint" style="opacity:0.7">—</span></div>
+        <div style="font-size:20px;font-weight:700;color:#178ADD" id="kv-sf">—</div>
       </div>
       
-      <div style="padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:10px;color:var(--t3)">Variação total</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:0.5px solid var(--border)">
+        <div style="font-size:9px;color:var(--t3)">Variação</div>
         <div style="font-size:12px;font-weight:600" id="kv-var">—</div>
       </div>
     </div>
@@ -2374,22 +2368,34 @@ function renderKPIs(){
   var totD = d.reduce((s,r) => s + r.debito,  0);
   var liq  = totC - totD;
   
-  /* ── Saldo Inicial e Final (sempre de allData) ── */
+  /* ── Saldo Inicial e Final (sempre de allData ORDENADO POR DATA) ── */
   var saldoInicial = 0;
   var saldoFinal = 0;
   var linhaInicial = '—';
   var linhaFinal = '—';
   
   if(allData.length > 0){
-    // Saldo Inicial: primeira linha (index 0 = linha 2 da planilha)
-    saldoInicial = allData[0].saldo;
-    linhaInicial = 'Linha 2';
+    // Ordena por data CRESCENTE (mais antiga → mais recente)
+    var dadosOrdenados = [...allData].sort((a,b) => a.date - b.date);
     
-    // Saldo Final: última linha por data (mais recente)
-    var dadosOrdenados = [...allData].sort((a,b) => b.date - a.date);
-    saldoFinal = dadosOrdenados[0].saldo;
-    // Encontra o index real na planilha (linha = index + 2)
-    var indexFinal = allData.findIndex(item => item.date.getTime() === dadosOrdenados[0].date.getTime() && item.saldo === dadosOrdenados[0].saldo);
+    // Saldo Inicial: PRIMEIRA linha cronológica (data mais antiga)
+    var primeiraLinha = dadosOrdenados[0];
+    saldoInicial = primeiraLinha.saldo;
+    // Encontra index original na planilha
+    var indexInicial = allData.findIndex(item => 
+      item.date.getTime() === primeiraLinha.date.getTime() && 
+      item.saldo === primeiraLinha.saldo
+    );
+    linhaInicial = 'Linha ' + (indexInicial + 2);
+    
+    // Saldo Final: ÚLTIMA linha cronológica (data mais recente)
+    var ultimaLinha = dadosOrdenados[dadosOrdenados.length - 1];
+    saldoFinal = ultimaLinha.saldo;
+    // Encontra index original na planilha
+    var indexFinal = allData.findIndex(item => 
+      item.date.getTime() === ultimaLinha.date.getTime() && 
+      item.saldo === ultimaLinha.saldo
+    );
     linhaFinal = 'Linha ' + (indexFinal + 2);
   }
   
