@@ -256,6 +256,10 @@ body {
 }
 #btn-refresh.spinning .r-ring { animation: spin .65s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
 /* Modo fullscreen — sidebar oculta, main ocupa tela toda */
 body.fullscreen-mode #sidebar { transform: translateX(-100%); }
@@ -1335,10 +1339,11 @@ html, body { overflow-x: hidden; max-width: 100%; }
   <div class="sb-sec">
     <div class="sb-sec-title">Período rápido</div>
     <div class="quick-period">
-      <button class="qp-btn" onclick="quickPeriod(7)">7d</button>
-      <button class="qp-btn" onclick="quickPeriod(30)">30d</button>
-      <button class="qp-btn" onclick="quickPeriod('mes')">Mês</button>
-      <button class="qp-btn" onclick="quickPeriod('ano')">Ano</button>
+      <button class="qp-btn" onclick="quickPeriod(7)">Últimos 7 dias</button>
+      <button class="qp-btn" onclick="quickPeriod(15)">Últimos 15 dias</button>
+      <button class="qp-btn" onclick="quickPeriod(30)">Últimos 30 dias</button>
+      <button class="qp-btn" onclick="quickPeriod('mes')">Este mês</button>
+      <button class="qp-btn" onclick="quickPeriod('ano')">Este ano</button>
       <button class="qp-btn" onclick="quickPeriod('tudo')">Tudo</button>
     </div>
     <div class="fg" style="margin-top:6px">
@@ -1597,8 +1602,6 @@ html, body { overflow-x: hidden; max-width: 100%; }
             <button class="cc-view-btn"        id="cc-view-cred"   onclick="setCCView('cred',this)"   style="font-size:9px;font-weight:700;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;font-family:var(--ff-body);background:transparent;color:var(--t2)">Crédito</button>
             <button class="cc-view-btn"        id="cc-view-deb"    onclick="setCCView('deb',this)"    style="font-size:9px;font-weight:700;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;font-family:var(--ff-body);background:transparent;color:var(--t2)">Débito</button>
           </div>
-          <button onclick="expandAllCC()" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--t2);cursor:pointer;font-family:var(--ff-body)">⊞ Expandir</button>
-          <button onclick="collapseAllCC()" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--t2);cursor:pointer;font-family:var(--ff-body)">⊟ Recolher</button>
         </div>
       </div>
       <div class="sum-table-wrap">
@@ -1702,6 +1705,18 @@ html, body { overflow-x: hidden; max-width: 100%; }
     <div class="ins-grid" id="ins-grid"></div>
   </div>
 
+  <!-- Auditoria de Dados -->
+  <div id="auditoria" style="margin-top:32px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h3 style="margin:0;font-size:16px;font-weight:700;color:var(--t1)">🔍 Auditoria de Dados</h3>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px">Verificação automática de inconsistências</div>
+      </div>
+      <div id="audit-status-badge"></div>
+    </div>
+    <div id="audit-content"></div>
+  </div>
+
 </main>
 
 <!-- ═══════════════════════════════════════════════════
@@ -1790,6 +1805,7 @@ function quickPeriod(p){
   var today = new Date();
   var start, end = today;
   if(p === 7)      { start = new Date(today); start.setDate(today.getDate()-7); }
+  else if(p === 15){ start = new Date(today); start.setDate(today.getDate()-15); }
   else if(p === 30){ start = new Date(today); start.setDate(today.getDate()-30); }
   else if(p === 'mes') { start = new Date(today.getFullYear(), today.getMonth(), 1); }
   else if(p === 'ano') { start = new Date(today.getFullYear(), 0, 1); }
@@ -3759,6 +3775,291 @@ function renderExtract(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   AUDITORIA DE DADOS
+   ═══════════════════════════════════════════════════════════════ */
+function auditarDados(){
+  if(!allData || !allData.length) return;
+  
+  const erros = [];
+  const avisos = [];
+  let saldoCalculado = 0;
+  const hoje = new Date();
+  
+  allData.forEach((linha, index) => {
+    const numeroLinha = index + 2; // +2 porque linha 1 é cabeçalho
+    
+    // 1. SALDO INCONSISTENTE (crítico)
+    saldoCalculado += linha.credito - linha.debito;
+    const diferenca = Math.abs(linha.saldo - saldoCalculado);
+    
+    if(diferenca > 0.01){ // Tolera diferença de 1 centavo por arredondamento
+      erros.push({
+        tipo: 'SALDO_INCONSISTENTE',
+        linha: numeroLinha,
+        data: linha.dateStr,
+        cc: linha.cc || linha.subcc || '—',
+        credito: linha.credito,
+        debito: linha.debito,
+        saldoInformado: linha.saldo,
+        saldoCalculado: saldoCalculado,
+        diferenca: linha.saldo - saldoCalculado
+      });
+    }
+    
+    // 2. CRÉDITO NEGATIVO (crítico)
+    if(linha.credito < 0){
+      erros.push({
+        tipo: 'CREDITO_NEGATIVO',
+        linha: numeroLinha,
+        data: linha.dateStr,
+        valor: linha.credito
+      });
+    }
+    
+    // 3. DÉBITO NEGATIVO (crítico)
+    if(linha.debito < 0){
+      erros.push({
+        tipo: 'DEBITO_NEGATIVO',
+        linha: numeroLinha,
+        data: linha.dateStr,
+        valor: linha.debito
+      });
+    }
+    
+    // 4. CAMPO OBRIGATÓRIO VAZIO (crítico)
+    if(!linha.cc && !linha.subcc){
+      erros.push({
+        tipo: 'CAMPO_VAZIO',
+        linha: numeroLinha,
+        data: linha.dateStr,
+        campo: 'Centro de Custo'
+      });
+    }
+    
+    // 5. DATA FUTURA (aviso)
+    if(linha.date > hoje){
+      const diasFuturos = Math.ceil((linha.date - hoje) / (1000*60*60*24));
+      avisos.push({
+        tipo: 'DATA_FUTURA',
+        linha: numeroLinha,
+        data: linha.dateStr,
+        diasFuturos: diasFuturos
+      });
+    }
+    
+    // 6. SEM MOVIMENTAÇÃO (aviso)
+    if(linha.credito === 0 && linha.debito === 0){
+      avisos.push({
+        tipo: 'SEM_MOVIMENTACAO',
+        linha: numeroLinha,
+        data: linha.dateStr
+      });
+    }
+  });
+  
+  renderAuditoria(erros, avisos);
+}
+
+function renderAuditoria(erros, avisos){
+  const totalErros = erros.length;
+  const totalAvisos = avisos.length;
+  const totalAnalisado = allData.length;
+  const taxaConformidade = totalAnalisado > 0 ? ((totalAnalisado - totalErros - totalAvisos) / totalAnalisado * 100).toFixed(1) : 100;
+  
+  // Badge de status no topo
+  const badge = document.getElementById('audit-status-badge');
+  if(totalErros > 0){
+    badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:8px;font-size:11px;font-weight:700;color:var(--red)">
+      <span style="width:8px;height:8px;background:var(--red);border-radius:50%;animation:pulse 2s ease-in-out infinite"></span>
+      ${totalErros} inconsistência${totalErros > 1 ? 's' : ''}
+    </span>`;
+  } else if(totalAvisos > 0){
+    badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;font-size:11px;font-weight:700;color:var(--amber)">
+      ⚠️ ${totalAvisos} aviso${totalAvisos > 1 ? 's' : ''}
+    </span>`;
+  } else {
+    badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(5,150,105,0.1);border:1px solid rgba(5,150,105,0.3);border-radius:8px;font-size:11px;font-weight:700;color:var(--green)">
+      ✓ Nenhuma inconsistência
+    </span>`;
+  }
+  
+  // Conteúdo principal
+  let html = '';
+  
+  if(totalErros === 0 && totalAvisos === 0){
+    // TUDO OK
+    html = `
+      <div style="padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:12px;text-align:center">
+        <div style="font-size:48px;margin-bottom:16px">✅</div>
+        <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:8px">Nenhuma inconsistência detectada!</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:16px">Todos os ${totalAnalisado.toLocaleString('pt-BR')} lançamentos estão consistentes.</div>
+        <div style="font-size:11px;color:var(--t3)">Última verificação: ${new Date().toLocaleString('pt-BR')}</div>
+      </div>
+    `;
+  } else {
+    // STATUS GERAL
+    html += `
+      <div style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Status Geral</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+          ${totalErros > 0 ? `<div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(220,38,38,0.1);display:flex;align-items:center;justify-content:center;font-size:18px">🔴</div>
+            <div>
+              <div style="font-size:11px;color:var(--t3)">Crítico</div>
+              <div style="font-size:20px;font-weight:700;color:var(--red)">${totalErros}</div>
+            </div>
+          </div>` : ''}
+          ${totalAvisos > 0 ? `<div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(217,119,6,0.1);display:flex;align-items:center;justify-content:center;font-size:18px">⚠️</div>
+            <div>
+              <div style="font-size:11px;color:var(--t3)">Atenção</div>
+              <div style="font-size:20px;font-weight:700;color:var(--amber)">${totalAvisos}</div>
+            </div>
+          </div>` : ''}
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(100,116,139,0.1);display:flex;align-items:center;justify-content:center;font-size:18px">📊</div>
+            <div>
+              <div style="font-size:11px;color:var(--t3)">Analisado</div>
+              <div style="font-size:20px;font-weight:700;color:var(--t2)">${totalAnalisado.toLocaleString('pt-BR')}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(5,150,105,0.1);display:flex;align-items:center;justify-content:center;font-size:18px">✓</div>
+            <div>
+              <div style="font-size:11px;color:var(--t3)">Conformidade</div>
+              <div style="font-size:20px;font-weight:700;color:var(--green)">${taxaConformidade}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // ERROS CRÍTICOS
+    if(totalErros > 0){
+      html += `<div style="margin-bottom:24px">
+        <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="width:24px;height:24px;border-radius:6px;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${totalErros}</span>
+          Inconsistências Críticas
+        </div>
+      `;
+      
+      erros.forEach((erro, i) => {
+        html += `<div style="padding:16px;background:var(--surface);border-left:4px solid var(--red);border:1px solid var(--border);border-left-width:4px;border-left-color:var(--red);border-radius:8px;margin-bottom:12px">`;
+        
+        if(erro.tipo === 'SALDO_INCONSISTENTE'){
+          html += `
+            <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px">🔴 #${i+1} · DIVERGÊNCIA DE SALDO</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap-x:12px;gap-y:6px;font-size:11px">
+              <div style="color:var(--t3)">Linha:</div><div style="color:var(--t1);font-weight:600">${erro.linha}</div>
+              <div style="color:var(--t3)">Data:</div><div style="color:var(--t2)">${erro.data}</div>
+              <div style="color:var(--t3)">Centro de Custo:</div><div style="color:var(--t2)">${escXml(erro.cc)}</div>
+              <div style="color:var(--t3)">Entrada:</div><div style="color:var(--green);font-weight:600">${R(erro.credito)}</div>
+              <div style="color:var(--t3)">Saída:</div><div style="color:var(--red);font-weight:600">${R(erro.debito)}</div>
+              <div style="color:var(--t3)">Saldo informado:</div><div style="color:var(--t2);font-weight:600">${R(erro.saldoInformado)}</div>
+              <div style="color:var(--t3)">Saldo calculado:</div><div style="color:var(--t2);font-weight:600">${R(erro.saldoCalculado)}</div>
+              <div style="color:var(--t3)">Diferença:</div><div style="color:var(--red);font-weight:700">${R(erro.diferenca)}</div>
+            </div>
+            <div style="margin-top:12px;padding:8px 12px;background:rgba(220,38,38,0.05);border-radius:6px;font-size:10px;color:var(--t2)">
+              <strong>Impacto:</strong> ALTO - Esta divergência afeta a análise de liquidez e saldo acumulado.
+            </div>
+          `;
+        } else if(erro.tipo === 'CREDITO_NEGATIVO'){
+          html += `
+            <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px">🔴 #${i+1} · CRÉDITO NEGATIVO</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap-x:12px;gap-y:6px;font-size:11px">
+              <div style="color:var(--t3)">Linha:</div><div style="color:var(--t1);font-weight:600">${erro.linha}</div>
+              <div style="color:var(--t3)">Data:</div><div style="color:var(--t2)">${erro.data}</div>
+              <div style="color:var(--t3)">Valor:</div><div style="color:var(--red);font-weight:700">${R(erro.valor)}</div>
+            </div>
+            <div style="margin-top:12px;padding:8px 12px;background:rgba(220,38,38,0.05);border-radius:6px;font-size:10px;color:var(--t2)">
+              <strong>Recomendação:</strong> Créditos não podem ser negativos. Verifique se não é um débito.
+            </div>
+          `;
+        } else if(erro.tipo === 'DEBITO_NEGATIVO'){
+          html += `
+            <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px">🔴 #${i+1} · DÉBITO NEGATIVO</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap-x:12px;gap-y:6px;font-size:11px">
+              <div style="color:var(--t3)">Linha:</div><div style="color:var(--t1);font-weight:600">${erro.linha}</div>
+              <div style="color:var(--t3)">Data:</div><div style="color:var(--t2)">${erro.data}</div>
+              <div style="color:var(--t3)">Valor:</div><div style="color:var(--red);font-weight:700">${R(erro.valor)}</div>
+            </div>
+            <div style="margin-top:12px;padding:8px 12px;background:rgba(220,38,38,0.05);border-radius:6px;font-size:10px;color:var(--t2)">
+              <strong>Recomendação:</strong> Débitos não podem ser negativos. Verifique se não é um crédito.
+            </div>
+          `;
+        } else if(erro.tipo === 'CAMPO_VAZIO'){
+          html += `
+            <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px">🔴 #${i+1} · CAMPO OBRIGATÓRIO VAZIO</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap-x:12px;gap-y:6px;font-size:11px">
+              <div style="color:var(--t3)">Linha:</div><div style="color:var(--t1);font-weight:600">${erro.linha}</div>
+              <div style="color:var(--t3)">Data:</div><div style="color:var(--t2)">${erro.data}</div>
+              <div style="color:var(--t3)">Campo:</div><div style="color:var(--red);font-weight:600">${erro.campo}</div>
+            </div>
+            <div style="margin-top:12px;padding:8px 12px;background:rgba(220,38,38,0.05);border-radius:6px;font-size:10px;color:var(--t2)">
+              <strong>Recomendação:</strong> Preencha o Centro de Custo para permitir análise correta.
+            </div>
+          `;
+        }
+        
+        html += `</div>`;
+      });
+      
+      html += `</div>`;
+    }
+    
+    // AVISOS
+    if(totalAvisos > 0){
+      html += `<div style="margin-bottom:24px">
+        <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          <span style="width:24px;height:24px;border-radius:6px;background:var(--amber);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${totalAvisos}</span>
+          Avisos para Revisão
+        </div>
+      `;
+      
+      avisos.slice(0, 5).forEach((aviso, i) => { // Mostra no máximo 5 avisos
+        html += `<div style="padding:16px;background:var(--surface);border-left:4px solid var(--amber);border:1px solid var(--border);border-left-width:4px;border-left-color:var(--amber);border-radius:8px;margin-bottom:12px">`;
+        
+        if(aviso.tipo === 'DATA_FUTURA'){
+          html += `
+            <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px">⚠️ #${i+1} · LANÇAMENTO FUTURO</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap-x:12px;gap-y:6px;font-size:11px">
+              <div style="color:var(--t3)">Linha:</div><div style="color:var(--t1);font-weight:600">${aviso.linha}</div>
+              <div style="color:var(--t3)">Data:</div><div style="color:var(--t2)">${aviso.data} (em ${aviso.diasFuturos} dias)</div>
+            </div>
+            <div style="margin-top:12px;padding:8px 12px;background:rgba(217,119,6,0.05);border-radius:6px;font-size:10px;color:var(--t2)">
+              Pode ser normal para: Projeções · Contratos futuros · Planejamento
+            </div>
+          `;
+        } else if(aviso.tipo === 'SEM_MOVIMENTACAO'){
+          html += `
+            <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:8px">⚠️ #${i+1} · SEM MOVIMENTAÇÃO</div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap-x:12px;gap-y:6px;font-size:11px">
+              <div style="color:var(--t3)">Linha:</div><div style="color:var(--t1);font-weight:600">${aviso.linha}</div>
+              <div style="color:var(--t3)">Data:</div><div style="color:var(--t2)">${aviso.data}</div>
+            </div>
+            <div style="margin-top:12px;padding:8px 12px;background:rgba(217,119,6,0.05);border-radius:6px;font-size:10px;color:var(--t2)">
+              Lançamento sem crédito nem débito. Verifique se é apenas um marcador.
+            </div>
+          `;
+        }
+        
+        html += `</div>`;
+      });
+      
+      if(totalAvisos > 5){
+        html += `<div style="padding:12px;text-align:center;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--t3)">
+          + ${totalAvisos - 5} avisos adicionais não exibidos
+        </div>`;
+      }
+      
+      html += `</div>`;
+    }
+  }
+  
+  document.getElementById('audit-content').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    CARREGAMENTO PRINCIPAL
    ═══════════════════════════════════════════════════════════════ */
 async function loadData(){
@@ -3786,6 +4087,9 @@ async function loadData(){
 
     /* Aplica filtros iniciais (período completo) */
     applyFilters();
+    
+    /* Executa auditoria de dados */
+    auditarDados();
 
     /* Atualiza horário no header */
     document.getElementById('hdr-clock').textContent = new Date().toLocaleTimeString('pt-BR');
