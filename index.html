@@ -10,6 +10,9 @@
 <!-- Chart.js via CDN — sem instalação -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+<!-- html2pdf para exportação em PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 <style>
 /* ═══════════════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -577,6 +580,23 @@ body, #sidebar, .card, #hdr, .kpi, #insights, #analysis,
 .kpi.kln .kpi-ico { background: var(--red-lt); }
 
 .kpi-hint { font-size: 11px; color: var(--t3); margin-top: 5px; }
+
+/* Indicador de tendência (vs período anterior) */
+.kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+.kpi-trend.up { background: var(--green-lt); color: var(--green); }
+.kpi-trend.down { background: var(--red-lt); color: var(--red); }
+.kpi-trend.neutral { background: var(--slate-lt); color: var(--t2); }
+.kpi-trend.empty { display: none; }
 
 /* ═══════════════════════════════════════════════════════════════
    CARD BASE
@@ -1274,6 +1294,14 @@ html, body { overflow-x: hidden; max-width: 100%; }
   </div>
 
   <div class="hdr-right">
+    <!-- Botão Exportar PDF -->
+    <button id="btn-export-pdf" onclick="exportToPDF()" title="Exportar dashboard em PDF"
+      style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:7px;color:#10B981;font-size:10px;font-weight:600;font-family:var(--ff-body);cursor:pointer;transition:all .2s;letter-spacing:.2px">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M6.5 1v8M3 5.5L6.5 9 10 5.5M2 11h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span id="btn-export-text">PDF</span>
+    </button>
     <!-- Botão abrir/fechar filtros no header -->
     <button id="btn-filter-toggle" onclick="toggleSidebarFromHeader()" title="Mostrar/ocultar filtros"
       style="display:flex;align-items:center;gap:6px;padding:5px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#94A3B8;font-size:10px;font-weight:600;font-family:var(--ff-body);cursor:pointer;transition:all .2s;letter-spacing:.2px">
@@ -1420,6 +1448,67 @@ html, body { overflow-x: hidden; max-width: 100%; }
     <pre id="err-detail" style="margin-top:8px;background:rgba(220,38,38,.08);padding:10px;border-radius:6px;font-size:11px;white-space:pre-wrap;word-break:break-all;color:#7F1D1D;max-height:200px;overflow-y:auto"></pre>
   </div>
 
+  <!-- ═══════════════════════ RESUMO EXECUTIVO ═══════════════════════ -->
+  <div id="exec-summary" style="background:linear-gradient(135deg,#0F172A 0%,#1E293B 100%);border-radius:14px;padding:24px;margin-bottom:20px;color:#fff;box-shadow:0 4px 20px rgba(15,23,42,0.15);position:relative;overflow:hidden">
+    <!-- Background pattern -->
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.05;background:radial-gradient(circle,#fff 1px,transparent 1px);background-size:20px 20px;pointer-events:none"></div>
+    
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;position:relative;z-index:1">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="width:8px;height:8px;background:#10B981;border-radius:50%;animation:pulse 2s ease-in-out infinite"></div>
+          <span style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;font-weight:600">Resumo Executivo · Tempo Real</span>
+        </div>
+        <h2 style="margin:0;font-size:18px;font-weight:700;color:#fff" id="exec-title">Análise Financeira do Período</h2>
+        <div style="font-size:11px;color:#94A3B8;margin-top:4px" id="exec-subtitle">Carregando dados...</div>
+      </div>
+      
+      <!-- Status geral -->
+      <div id="exec-status" style="padding:10px 16px;border-radius:10px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);display:flex;align-items:center;gap:10px">
+        <div style="font-size:24px" id="exec-status-icon">✅</div>
+        <div>
+          <div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px">Status Geral</div>
+          <div style="font-size:14px;font-weight:700;color:#10B981" id="exec-status-text">SAUDÁVEL</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Métricas chave -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;position:relative;z-index:1">
+      <div style="padding:14px;background:rgba(255,255,255,0.05);border-radius:10px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Resultado Líquido</div>
+        <div style="font-size:20px;font-weight:700;color:#fff" id="exec-resultado">—</div>
+        <div style="font-size:11px;color:#94A3B8;margin-top:2px" id="exec-resultado-trend">—</div>
+      </div>
+      
+      <div style="padding:14px;background:rgba(255,255,255,0.05);border-radius:10px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Margem</div>
+        <div style="font-size:20px;font-weight:700;color:#fff" id="exec-margem">—</div>
+        <div style="font-size:11px;color:#94A3B8;margin-top:2px">% sobre receita</div>
+      </div>
+      
+      <div style="padding:14px;background:rgba(255,255,255,0.05);border-radius:10px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Saldo Final</div>
+        <div style="font-size:20px;font-weight:700;color:#fff" id="exec-saldo">—</div>
+        <div style="font-size:11px;color:#94A3B8;margin-top:2px" id="exec-saldo-var">—</div>
+      </div>
+      
+      <div style="padding:14px;background:rgba(255,255,255,0.05);border-radius:10px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Lançamentos</div>
+        <div style="font-size:20px;font-weight:700;color:#fff" id="exec-lancamentos">—</div>
+        <div style="font-size:11px;color:#94A3B8;margin-top:2px" id="exec-periodo">—</div>
+      </div>
+    </div>
+    
+    <!-- Mensagem inteligente -->
+    <div id="exec-message" style="margin-top:16px;padding:12px 16px;background:rgba(255,255,255,0.05);border-left:3px solid #10B981;border-radius:6px;font-size:12px;color:#CBD5E1;line-height:1.5;position:relative;z-index:1">
+      Analisando dados do período selecionado...
+    </div>
+  </div>
+
+  <!-- Container de Alertas -->
+  <div id="alerts-container" style="display:none"></div>
+
   <!-- KPIs -->
   <div id="kpis">
     <div class="kpi kg">
@@ -1432,6 +1521,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <div class="kpi-label">Total Crédito</div>
       <div class="kpi-val" id="kv-c">—</div>
       <div class="kpi-hint">Soma de Crédito (R$)</div>
+      <div class="kpi-trend" id="kv-c-trend"></div>
     </div>
 
     <div class="kpi kr">
@@ -1444,6 +1534,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <div class="kpi-label">Total Débito</div>
       <div class="kpi-val" id="kv-d">—</div>
       <div class="kpi-hint">Soma de Débito (R$)</div>
+      <div class="kpi-trend" id="kv-d-trend"></div>
     </div>
 
     <div class="kpi klp" id="kpi-liq">
@@ -1455,6 +1546,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <div class="kpi-label">Resultado Líquido</div>
       <div class="kpi-val" id="kv-l">—</div>
       <div class="kpi-hint">Crédito − Débito</div>
+      <div class="kpi-trend" id="kv-l-trend"></div>
     </div>
 
     <div class="kpi kb" id="kpi-saldo">
@@ -1466,22 +1558,22 @@ html, body { overflow-x: hidden; max-width: 100%; }
       </div>
       <div class="kpi-label">Evolução de Saldo</div>
       
-      <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:8px;flex-wrap:wrap">
-        <div style="font-size:9px;color:var(--t3);font-weight:600">Inicial:</div>
-        <div style="font-size:11px;font-weight:600;color:var(--t2)" id="kv-si">—</div>
-        <div style="font-size:8px;color:var(--t3);opacity:0.7" id="kv-si-hint">—</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:10px;color:var(--t3);font-weight:600">Inicial</span>
+        <span style="font-size:9px;color:var(--t3);opacity:0.7" id="kv-si-hint">—</span>
       </div>
+      <div style="font-size:13px;font-weight:600;color:var(--t2);margin-bottom:10px;line-height:1.2" id="kv-si">—</div>
       
       <div style="background:var(--blue-lt);border-radius:6px;padding:8px 10px;margin-bottom:8px">
-        <div style="font-size:9px;color:var(--blue);font-weight:600;margin-bottom:2px">Final:</div>
-        <div style="display:flex;align-items:baseline;gap:4px;flex-wrap:wrap">
-          <div class="kpi-val" id="kv-sf" style="font-size:clamp(13px,1.3vw,16px)!important;line-height:1.1">—</div>
-          <div style="font-size:8px;color:var(--blue);opacity:0.7" id="kv-sf-hint">—</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+          <span style="font-size:10px;color:var(--blue);font-weight:700">Final</span>
+          <span style="font-size:9px;color:var(--blue);opacity:0.7" id="kv-sf-hint">—</span>
         </div>
+        <div style="font-size:15px;font-weight:700;color:var(--blue);line-height:1.2" id="kv-sf">—</div>
       </div>
       
-      <div class="kpi-hint" style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-        <span>Variação</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)">
+        <span style="font-size:10px;color:var(--t3)">Variação</span>
         <span style="font-size:11px;font-weight:700" id="kv-var">—</span>
       </div>
     </div>
@@ -1596,6 +1688,38 @@ html, body { overflow-x: hidden; max-width: 100%; }
         <canvas id="ch-linhas" style="width:100%" role="img" aria-label="Linhas: crédito e débito por período"></canvas>
       </div>
       <div id="ch-linhas-leg" style="display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:11px"></div>
+    </div>
+  </div>
+
+  <!-- GRÁFICO 5: WATERFALL (Cascata) — Da onde sai e para onde vai -->
+  <div class="g1">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">Composição do Resultado — Cascata Financeira</div>
+        <div class="card-sub">Como chegamos do saldo inicial ao final · Verde = entrada · Vermelho = saída</div>
+      </div>
+      <div style="position:relative;height:340px">
+        <canvas id="ch-waterfall" role="img" aria-label="Gráfico Cascata"></canvas>
+      </div>
+      <div id="waterfall-legend" style="margin-top:12px;padding:10px 14px;background:var(--surface-2);border-radius:8px;font-size:11px;color:var(--t2);line-height:1.5"></div>
+    </div>
+  </div>
+
+  <!-- TOP 10 TRANSAÇÕES -->
+  <div class="g2">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">🏆 TOP 10 Maiores Entradas</div>
+        <div class="card-sub">Ranking das maiores receitas no período</div>
+      </div>
+      <div id="top-cred-wrap" style="max-height:380px;overflow-y:auto"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">⚠️ TOP 10 Maiores Saídas</div>
+        <div class="card-sub">Ranking das maiores despesas no período</div>
+      </div>
+      <div id="top-deb-wrap" style="max-height:380px;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -2353,22 +2477,254 @@ function clearFilters(){
    RENDER PRINCIPAL — chama todos os sub-renders
    ═══════════════════════════════════════════════════════════════ */
 function renderAll(){
+  renderExecSummary();
   renderKPIs();
   renderCharts();
   renderCCTable();
   renderInsights();
   renderAnalysis();
   renderExtract();
+  renderTopTransactions();
+  renderAlerts();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPORTAR PDF
+   ═══════════════════════════════════════════════════════════════ */
+function exportToPDF(){
+  var btn = document.getElementById('btn-export-pdf');
+  var btnText = document.getElementById('btn-export-text');
+  var originalText = btnText.textContent;
+  
+  btn.style.opacity = '0.6';
+  btn.style.cursor = 'wait';
+  btnText.textContent = 'Gerando...';
+  
+  // Esconde temporariamente elementos não desejados no PDF
+  var sidebar = document.getElementById('sidebar');
+  var header = document.querySelector('header');
+  var sidebarDisplay = sidebar ? sidebar.style.display : '';
+  
+  if(sidebar) sidebar.style.display = 'none';
+  
+  var main = document.getElementById('main');
+  var mainMargin = main.style.marginLeft;
+  main.style.marginLeft = '0';
+  
+  var hoje = new Date();
+  var dataStr = hoje.toLocaleDateString('pt-BR').replace(/\//g, '-');
+  var horaStr = hoje.toLocaleTimeString('pt-BR').replace(/:/g, '-');
+  var fileName = 'Dashboard-FluxoCaixa-' + dataStr + '-' + horaStr + '.pdf';
+  
+  var element = main;
+  var opt = {
+    margin: [10, 10, 10, 10],
+    filename: fileName,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { 
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#FFFFFF'
+    },
+    jsPDF: { 
+      unit: 'mm', 
+      format: 'a3', 
+      orientation: 'portrait',
+      compress: true
+    },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+  };
+  
+  html2pdf().set(opt).from(element).save().then(function(){
+    // Restaura UI
+    if(sidebar) sidebar.style.display = sidebarDisplay;
+    main.style.marginLeft = mainMargin;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btnText.textContent = '✓ Pronto!';
+    setTimeout(function(){ btnText.textContent = originalText; }, 2000);
+  }).catch(function(err){
+    console.error('Erro ao exportar PDF:', err);
+    if(sidebar) sidebar.style.display = sidebarDisplay;
+    main.style.marginLeft = mainMargin;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btnText.textContent = '✗ Erro';
+    setTimeout(function(){ btnText.textContent = originalText; }, 2000);
+    alert('Erro ao gerar PDF. Tente novamente.');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESUMO EXECUTIVO — Card destacado no topo
+   ═══════════════════════════════════════════════════════════════ */
+function renderExecSummary(){
+  if(!filteredData || filteredData.length === 0) return;
+  
+  var d = filteredData;
+  var totC = d.reduce((s,r) => s + r.credito, 0);
+  var totD = d.reduce((s,r) => s + r.debito, 0);
+  var liq = totC - totD;
+  var margem = totC > 0 ? (liq / totC * 100) : 0;
+  var saldoFinal = allData.length > 0 ? allData[allData.length - 1].saldo : 0;
+  var saldoInicial = allData.length > 0 ? allData[0].saldo : 0;
+  var variacao = saldoFinal - saldoInicial;
+  
+  // Período
+  var datas = d.map(r => r.date).sort((a,b) => a - b);
+  var dataIni = datas[0];
+  var dataFim = datas[datas.length - 1];
+  var periodoStr = fmtD(dataIni) + ' a ' + fmtD(dataFim);
+  
+  // Determina status geral
+  var status = 'SAUDÁVEL';
+  var statusColor = '#10B981';
+  var statusBg = 'rgba(16,185,129,0.15)';
+  var statusBorder = 'rgba(16,185,129,0.3)';
+  var statusIcon = '✅';
+  
+  if(liq < 0){
+    status = 'ATENÇÃO';
+    statusColor = '#F59E0B';
+    statusBg = 'rgba(245,158,11,0.15)';
+    statusBorder = 'rgba(245,158,11,0.3)';
+    statusIcon = '⚠️';
+  }
+  if(margem < 5 && liq > 0){
+    status = 'MARGEM BAIXA';
+    statusColor = '#F59E0B';
+    statusBg = 'rgba(245,158,11,0.15)';
+    statusBorder = 'rgba(245,158,11,0.3)';
+    statusIcon = '⚠️';
+  }
+  if(saldoFinal < 0){
+    status = 'CRÍTICO';
+    statusColor = '#EF4444';
+    statusBg = 'rgba(239,68,68,0.15)';
+    statusBorder = 'rgba(239,68,68,0.3)';
+    statusIcon = '🔴';
+  }
+  
+  // Atualiza UI
+  var statusEl = document.getElementById('exec-status');
+  if(statusEl){
+    statusEl.style.background = statusBg;
+    statusEl.style.borderColor = statusBorder;
+  }
+  document.getElementById('exec-status-icon').textContent = statusIcon;
+  var statusText = document.getElementById('exec-status-text');
+  statusText.textContent = status;
+  statusText.style.color = statusColor;
+  
+  document.getElementById('exec-subtitle').textContent = periodoStr + ' · ' + d.length.toLocaleString('pt-BR') + ' lançamentos';
+  
+  var resEl = document.getElementById('exec-resultado');
+  resEl.textContent = (liq >= 0 ? '+' : '') + R(liq);
+  resEl.style.color = liq >= 0 ? '#10B981' : '#EF4444';
+  
+  document.getElementById('exec-margem').textContent = margem.toFixed(1) + '%';
+  document.getElementById('exec-saldo').textContent = R(saldoFinal);
+  
+  var saldoVarEl = document.getElementById('exec-saldo-var');
+  saldoVarEl.textContent = (variacao >= 0 ? '+' : '') + R(variacao) + ' no período';
+  saldoVarEl.style.color = variacao >= 0 ? '#10B981' : '#EF4444';
+  
+  document.getElementById('exec-lancamentos').textContent = d.length.toLocaleString('pt-BR');
+  
+  var dias = Math.ceil((dataFim - dataIni) / (1000*60*60*24)) + 1;
+  document.getElementById('exec-periodo').textContent = dias + ' dia' + (dias > 1 ? 's' : '');
+  
+  // Mensagem inteligente
+  var msg = '';
+  var msgColor = '#10B981';
+  if(liq > 0 && margem > 30){
+    msg = '✨ Excelente desempenho financeiro! O resultado líquido de ' + R(liq) + ' representa uma margem saudável de ' + margem.toFixed(1) + '% sobre as receitas. Continue mantendo este padrão.';
+  } else if(liq > 0 && margem > 10){
+    msg = '✓ Resultado positivo no período. Margem líquida de ' + margem.toFixed(1) + '% está dentro do esperado, com oportunidade de otimização nas despesas.';
+  } else if(liq > 0 && margem <= 10){
+    msg = '⚠️ Resultado positivo, porém margem apertada (' + margem.toFixed(1) + '%). Recomenda-se revisar despesas operacionais para melhorar a rentabilidade.';
+    msgColor = '#F59E0B';
+  } else if(liq < 0){
+    msg = '🔴 Atenção: Resultado negativo de ' + R(Math.abs(liq)) + ' no período. As despesas superaram as receitas em ' + Math.abs(margem).toFixed(1) + '%. Ação corretiva urgente necessária.';
+    msgColor = '#EF4444';
+  } else {
+    msg = 'Resultado equilibrado no período. Receitas e despesas próximas.';
+  }
+  
+  var msgEl = document.getElementById('exec-message');
+  msgEl.textContent = msg;
+  msgEl.style.borderLeftColor = msgColor;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    KPIs
    ═══════════════════════════════════════════════════════════════ */
+
+/* Renderiza indicador de tendência */
+function renderTrend(elId, percent, higherIsBetter){
+  var el = document.getElementById(elId);
+  if(!el) return;
+  
+  if(percent === null || percent === undefined || isNaN(percent)){
+    el.className = 'kpi-trend empty';
+    el.textContent = '';
+    return;
+  }
+  
+  var arrow = '';
+  var cls = '';
+  
+  if(Math.abs(percent) < 0.1){
+    arrow = '→';
+    cls = 'neutral';
+  } else if(percent > 0){
+    arrow = '↑';
+    cls = higherIsBetter ? 'up' : 'down';
+  } else {
+    arrow = '↓';
+    cls = higherIsBetter ? 'down' : 'up';
+  }
+  
+  el.className = 'kpi-trend ' + cls;
+  el.innerHTML = arrow + ' ' + Math.abs(percent).toFixed(1) + '% vs período anterior';
+}
+
 function renderKPIs(){
   var d    = filteredData;
   var totC = d.reduce((s,r) => s + r.credito, 0);
   var totD = d.reduce((s,r) => s + r.debito,  0);
   var liq  = totC - totD;
+  
+  /* ── Comparação Temporal: período anterior ── */
+  var trendC = null, trendD = null, trendL = null;
+  
+  if(d.length > 0){
+    // Determina período atual
+    var datas = d.map(r => r.date).sort((a,b) => a - b);
+    var dataIni = datas[0];
+    var dataFim = datas[datas.length - 1];
+    var diffMs = dataFim - dataIni;
+    
+    // Período anterior: mesmo tamanho, antes do atual
+    var dataAntFim = new Date(dataIni.getTime() - 1);
+    var dataAntIni = new Date(dataAntFim.getTime() - diffMs);
+    
+    // Filtra dados do período anterior em allData
+    var dadosAnt = allData.filter(r => 
+      r.date >= dataAntIni && r.date <= dataAntFim
+    );
+    
+    if(dadosAnt.length > 0){
+      var totCAnt = dadosAnt.reduce((s,r) => s + r.credito, 0);
+      var totDAnt = dadosAnt.reduce((s,r) => s + r.debito, 0);
+      var liqAnt = totCAnt - totDAnt;
+      
+      trendC = totCAnt > 0 ? ((totC - totCAnt) / totCAnt * 100) : null;
+      trendD = totDAnt > 0 ? ((totD - totDAnt) / totDAnt * 100) : null;
+      trendL = liqAnt !== 0 ? ((liq - liqAnt) / Math.abs(liqAnt) * 100) : null;
+    }
+  }
   
   /* ── Saldo Inicial e Final (primeira e última LINHA FÍSICA da planilha) ── */
   var saldoInicial = 0;
@@ -2393,6 +2749,11 @@ function renderKPIs(){
   document.getElementById('kv-d').textContent = R(totD);
   var liqEl = document.getElementById('kv-l');
   liqEl.textContent = (liq >= 0 ? '+' : '') + R(liq);
+  
+  /* ── Tendências ── */
+  renderTrend('kv-c-trend', trendC, true);  // Crédito: alta = bom
+  renderTrend('kv-d-trend', trendD, false); // Débito: alta = ruim
+  renderTrend('kv-l-trend', trendL, true);  // Líquido: alta = bom
   
   /* ── Saldo Inicial ── */
   document.getElementById('kv-si').textContent = R(saldoInicial);
@@ -2490,7 +2851,7 @@ function setH(wrapperId, h){
 }
 
 function renderCharts(){
-  chSaldo(); chMensal(); chTreemap(); chTreemap2(); chLinhas();
+  chSaldo(); chMensal(); chTreemap(); chTreemap2(); chLinhas(); chWaterfall();
 }
 
 /* 1. Linha — Evolução do Saldo (suporta negativo, linha de zero) */
@@ -3108,6 +3469,353 @@ function chLinhas(){
          + '<span style="height:0;border-top:2.5px solid '+i.c
          + ';width:22px;flex-shrink:0;display:inline-block"></span>'+i.l+'</span>';
   }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GRÁFICO WATERFALL (Cascata) — Saldo Inicial → Final
+   ═══════════════════════════════════════════════════════════════ */
+function currentTheme(){
+  return document.documentElement.getAttribute('data-theme') || 'light';
+}
+
+function chWaterfall(){
+  killChart('waterfall');
+  var canvas = document.getElementById('ch-waterfall');
+  if(!canvas) return;
+  
+  // Calcular dados
+  var saldoInicial = allData.length > 0 ? allData[0].saldo : 0;
+  var saldoFinal = allData.length > 0 ? allData[allData.length - 1].saldo : 0;
+  
+  // Agrupar entradas e saídas por classificação (top 5 de cada)
+  var creditPorCC = {};
+  var debitoPorCC = {};
+  filteredData.forEach(function(r){
+    var k = r.cc || '(Outros)';
+    if(r.credito > 0){
+      creditPorCC[k] = (creditPorCC[k] || 0) + r.credito;
+    }
+    if(r.debito > 0){
+      debitoPorCC[k] = (debitoPorCC[k] || 0) + r.debito;
+    }
+  });
+  
+  // Top 4 entradas + Outros
+  var topCred = Object.entries(creditPorCC).sort(function(a,b){ return b[1]-a[1]; });
+  var topCredFiltered = topCred.slice(0, 4);
+  var outrosCred = topCred.slice(4).reduce(function(s,c){ return s + c[1]; }, 0);
+  if(outrosCred > 0) topCredFiltered.push(['Outras Entradas', outrosCred]);
+  
+  // Top 4 saídas + Outros
+  var topDeb = Object.entries(debitoPorCC).sort(function(a,b){ return b[1]-a[1]; });
+  var topDebFiltered = topDeb.slice(0, 4);
+  var outrosDeb = topDeb.slice(4).reduce(function(s,c){ return s + c[1]; }, 0);
+  if(outrosDeb > 0) topDebFiltered.push(['Outras Saídas', outrosDeb]);
+  
+  // Construir labels e valores cumulativos
+  var labels = ['Saldo Inicial'];
+  var bases = [0];
+  var values = [saldoInicial];
+  var colors = ['rgba(100, 116, 139, 0.8)'];
+  var borders = ['#64748B'];
+  
+  var cumulativo = saldoInicial;
+  
+  // Adicionar entradas (verde)
+  topCredFiltered.forEach(function(item){
+    labels.push('+ ' + item[0]);
+    bases.push(cumulativo);
+    values.push(item[1]);
+    colors.push('rgba(5, 150, 105, 0.8)');
+    borders.push('#059669');
+    cumulativo += item[1];
+  });
+  
+  // Adicionar saídas (vermelho)
+  topDebFiltered.forEach(function(item){
+    labels.push('- ' + item[0]);
+    bases.push(cumulativo - item[1]);
+    values.push(item[1]);
+    colors.push('rgba(220, 38, 38, 0.8)');
+    borders.push('#DC2626');
+    cumulativo -= item[1];
+  });
+  
+  // Saldo Final
+  labels.push('Saldo Final');
+  bases.push(0);
+  values.push(saldoFinal);
+  colors.push('rgba(59, 130, 246, 0.8)');
+  borders.push('#3B82F6');
+  
+  var theme = currentTheme();
+  var gridColor = theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  var textColor = theme === 'dark' ? '#8B9DC3' : '#475569';
+  
+  CH['waterfall'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Saldo',
+        data: values.map(function(v, i){ return [bases[i], bases[i] + v]; }),
+        backgroundColor: colors,
+        borderColor: borders,
+        borderWidth: 1.5,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'x',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx){
+              var i = ctx.dataIndex;
+              var val = values[i];
+              if(i === 0 || i === labels.length - 1){
+                return 'Valor: ' + R(val);
+              }
+              var sign = labels[i].startsWith('+') ? '+' : '-';
+              return sign + ' ' + R(val);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { 
+            color: textColor, 
+            font: { size: 9, family: 'Verdana' },
+            maxRotation: 35,
+            minRotation: 35,
+            autoSkip: false
+          }
+        },
+        y: {
+          grid: { color: gridColor },
+          ticks: { 
+            color: textColor, 
+            font: { size: 10, family: 'Verdana' },
+            callback: function(v){ 
+              if(Math.abs(v) >= 1000000) return 'R$ ' + (v/1000000).toFixed(1) + 'M';
+              if(Math.abs(v) >= 1000) return 'R$ ' + (v/1000).toFixed(0) + 'k';
+              return 'R$ ' + v;
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  // Legenda explicativa
+  var leg = document.getElementById('waterfall-legend');
+  if(leg){
+    var diff = saldoFinal - saldoInicial;
+    var diffStr = (diff >= 0 ? '+' : '') + R(diff);
+    var diffColor = diff >= 0 ? 'var(--green)' : 'var(--red)';
+    leg.innerHTML = '<strong>Como ler:</strong> Partindo do saldo inicial de <strong>' + R(saldoInicial) + '</strong>, ' +
+      'as entradas (verde) somam ao saldo e as saídas (vermelho) reduzem, chegando ao saldo final de <strong>' + R(saldoFinal) + '</strong>. ' +
+      'Variação total: <strong style="color:' + diffColor + '">' + diffStr + '</strong>';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOP 10 TRANSAÇÕES — Maiores Entradas e Saídas
+   ═══════════════════════════════════════════════════════════════ */
+function renderTopTransactions(){
+  var d = filteredData;
+  
+  // Top 10 Créditos
+  var topCred = [...d].filter(function(r){ return r.credito > 0; })
+    .sort(function(a,b){ return b.credito - a.credito; })
+    .slice(0, 10);
+  
+  // Top 10 Débitos
+  var topDeb = [...d].filter(function(r){ return r.debito > 0; })
+    .sort(function(a,b){ return b.debito - a.debito; })
+    .slice(0, 10);
+  
+  function renderList(items, type){
+    if(items.length === 0){
+      return '<div style="padding:40px;text-align:center;color:var(--t3);font-size:12px">Nenhum lançamento no período</div>';
+    }
+    
+    var color = type === 'cred' ? 'var(--green)' : 'var(--red)';
+    var bgColor = type === 'cred' ? 'var(--green-lt)' : 'var(--red-lt)';
+    var sign = type === 'cred' ? '+' : '-';
+    var maxVal = Math.max.apply(null, items.map(function(r){ return type === 'cred' ? r.credito : r.debito; }));
+    
+    var html = '<div style="padding:8px 0">';
+    items.forEach(function(r, i){
+      var val = type === 'cred' ? r.credito : r.debito;
+      var pct = (val / maxVal * 100).toFixed(0);
+      var rank = i + 1;
+      var medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+      var rankColor = rank <= 3 ? color : 'var(--t3)';
+      
+      html += '<div style="padding:10px 14px;border-bottom:1px solid var(--border);position:relative;overflow:hidden">' +
+        '<div style="position:absolute;top:0;left:0;height:100%;width:' + pct + '%;background:' + bgColor + ';opacity:0.3;z-index:0"></div>' +
+        '<div style="position:relative;z-index:1;display:flex;align-items:center;gap:10px">' +
+          '<div style="font-size:11px;font-weight:700;color:' + rankColor + ';width:24px;text-align:center">' + (medal || '#' + rank) + '</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:11px;font-weight:600;color:var(--t1);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + 
+              escXml(r.subcc || r.cc || 'Sem categoria') + '</div>' +
+            '<div style="font-size:9px;color:var(--t3)">' + 
+              r.dateStr + (r.cc && r.subcc ? ' · ' + escXml(r.cc) : '') + '</div>' +
+          '</div>' +
+          '<div style="font-size:13px;font-weight:700;color:' + color + ';flex-shrink:0">' + sign + R(val) + '</div>' +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+  
+  var credEl = document.getElementById('top-cred-wrap');
+  var debEl = document.getElementById('top-deb-wrap');
+  if(credEl) credEl.innerHTML = renderList(topCred, 'cred');
+  if(debEl) debEl.innerHTML = renderList(topDeb, 'deb');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SISTEMA DE ALERTAS — Detecção automática de anomalias
+   ═══════════════════════════════════════════════════════════════ */
+function renderAlerts(){
+  var alertsContainer = document.getElementById('alerts-container');
+  if(!alertsContainer) return;
+  
+  var alerts = [];
+  var d = filteredData;
+  
+  if(d.length === 0){
+    alertsContainer.innerHTML = '';
+    alertsContainer.style.display = 'none';
+    return;
+  }
+  
+  // 1. Verificar saldo negativo
+  var saldoFinal = allData.length > 0 ? allData[allData.length - 1].saldo : 0;
+  if(saldoFinal < 0){
+    alerts.push({
+      level: 'critical',
+      icon: '🔴',
+      title: 'Saldo Final Negativo',
+      desc: 'O saldo final está em ' + R(saldoFinal) + '. Ação urgente necessária.'
+    });
+  }
+  
+  // 2. Verificar margem baixa
+  var totC = d.reduce(function(s,r){ return s + r.credito; }, 0);
+  var totD = d.reduce(function(s,r){ return s + r.debito; }, 0);
+  var margem = totC > 0 ? ((totC - totD) / totC * 100) : 0;
+  
+  if(margem < 5 && margem >= 0){
+    alerts.push({
+      level: 'warning',
+      icon: '⚠️',
+      title: 'Margem Líquida Baixa',
+      desc: 'Margem de ' + margem.toFixed(1) + '% está abaixo do recomendado (>10%). Reveja despesas.'
+    });
+  }
+  
+  // 3. Verificar despesas concentradas (mais de 30% em uma categoria)
+  var debitoPorCC = {};
+  d.forEach(function(r){
+    if(r.debito > 0){
+      var k = r.cc || '(Outros)';
+      debitoPorCC[k] = (debitoPorCC[k] || 0) + r.debito;
+    }
+  });
+  
+  Object.entries(debitoPorCC).forEach(function(entry){
+    var pct = totD > 0 ? (entry[1] / totD * 100) : 0;
+    if(pct > 30){
+      alerts.push({
+        level: 'info',
+        icon: '📊',
+        title: 'Concentração de Despesas',
+        desc: 'A categoria "' + entry[0] + '" representa ' + pct.toFixed(1) + '% das despesas (' + R(entry[1]) + ').'
+      });
+    }
+  });
+  
+  // 4. Verificar receitas concentradas (concentração de risco)
+  var creditoPorCC = {};
+  d.forEach(function(r){
+    if(r.credito > 0){
+      var k = r.cc || '(Outros)';
+      creditoPorCC[k] = (creditoPorCC[k] || 0) + r.credito;
+    }
+  });
+  
+  Object.entries(creditoPorCC).forEach(function(entry){
+    var pct = totC > 0 ? (entry[1] / totC * 100) : 0;
+    if(pct > 50){
+      alerts.push({
+        level: 'warning',
+        icon: '🎯',
+        title: 'Risco de Concentração',
+        desc: 'A categoria "' + entry[0] + '" representa ' + pct.toFixed(1) + '% das receitas. Considere diversificar.'
+      });
+    }
+  });
+  
+  // 5. Verificar transações muito acima da média
+  var creds = d.filter(function(r){ return r.credito > 0; }).map(function(r){ return r.credito; });
+  if(creds.length > 5){
+    var avgCred = creds.reduce(function(s,v){ return s+v; }, 0) / creds.length;
+    var maxCred = Math.max.apply(null, creds);
+    if(maxCred > avgCred * 5){
+      alerts.push({
+        level: 'info',
+        icon: '💎',
+        title: 'Receita Excepcional',
+        desc: 'Maior entrada (' + R(maxCred) + ') é ' + (maxCred/avgCred).toFixed(1) + 'x maior que a média.'
+      });
+    }
+  }
+  
+  // Renderizar alertas
+  if(alerts.length === 0){
+    alertsContainer.innerHTML = '';
+    alertsContainer.style.display = 'none';
+    return;
+  }
+  
+  alertsContainer.style.display = 'block';
+  var levelStyles = {
+    critical: { bg: 'rgba(239,68,68,0.1)', border: '#EF4444', text: '#991B1B' },
+    warning: { bg: 'rgba(245,158,11,0.1)', border: '#F59E0B', text: '#92400E' },
+    info: { bg: 'rgba(59,130,246,0.1)', border: '#3B82F6', text: '#1E40AF' }
+  };
+  
+  var html = '<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:20px;border:1px solid var(--border);box-shadow:var(--sh-sm)">' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+      '<span style="font-size:14px;font-weight:700;color:var(--t1)">🔔 Alertas e Recomendações</span>' +
+      '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--surface-2);color:var(--t2)">' + alerts.length + '</span>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px">';
+  
+  alerts.forEach(function(a){
+    var s = levelStyles[a.level];
+    html += '<div style="padding:10px 14px;background:' + s.bg + ';border-left:3px solid ' + s.border + ';border-radius:6px">' +
+      '<div style="display:flex;align-items:flex-start;gap:8px">' +
+        '<span style="font-size:16px">' + a.icon + '</span>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:12px;font-weight:700;color:' + s.border + ';margin-bottom:2px">' + a.title + '</div>' +
+          '<div style="font-size:11px;color:var(--t2);line-height:1.4">' + a.desc + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  
+  html += '</div></div>';
+  alertsContainer.innerHTML = html;
 }
 
 /* ═══════════════════════════════════════════════════════════════
