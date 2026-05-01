@@ -2352,7 +2352,7 @@ function renderKPIs(){
   var totC = d.reduce((s,r) => s + r.credito, 0);
   var totD = d.reduce((s,r) => s + r.debito,  0);
   var liq  = totC - totD;
-  var sal  = d.length > 0 ? [...d].sort((a,b) => b.date - a.date)[0]?.saldo ?? 0 : 0;
+  var sal  = allData.length > 0 ? [...allData].sort((a,b) => b.date - a.date)[0]?.saldo ?? 0 : 0;
 
   /* ── KPIs linha 1 ── */
   document.getElementById('kv-c').textContent = R(totC);
