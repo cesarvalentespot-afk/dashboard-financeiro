@@ -1604,6 +1604,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
             <button class="cc-view-btn"        id="cc-view-cred"   onclick="setCCView('cred',this)"   style="font-size:9px;font-weight:700;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;font-family:var(--ff-body);background:transparent;color:var(--t2)">Crédito</button>
             <button class="cc-view-btn"        id="cc-view-deb"    onclick="setCCView('deb',this)"    style="font-size:9px;font-weight:700;padding:4px 9px;border-radius:5px;border:none;cursor:pointer;font-family:var(--ff-body);background:transparent;color:var(--t2)">Débito</button>
           </div>
+          <button onclick="expandAllCC()" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--t2);cursor:pointer;font-family:var(--ff-body)">⊞ Expandir</button>
+          <button onclick="collapseAllCC()" style="font-size:10px;font-weight:600;padding:5px 10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--t2);cursor:pointer;font-family:var(--ff-body)">⊟ Recolher</button>
         </div>
       </div>
       <div class="sum-table-wrap">
@@ -3794,78 +3796,77 @@ function auditarDados(){
     // Não valida, apenas define como ponto de partida
     if(index === 0){
       saldoCalculado = linha.saldo; // Pega o saldo inicial informado
-      return; // Pula para próxima linha sem validar
-    }
+    } else {
+      // A partir da LINHA 3 (index 1+): calcula saldo acumulado
+      saldoCalculado += linha.credito - linha.debito;
+      
+      // 1. SALDO INCONSISTENTE (crítico)
+      const diferenca = Math.abs(linha.saldo - saldoCalculado);
+      
+      if(diferenca > 0.01){ // Tolera diferença de 1 centavo por arredondamento
+        erros.push({
+          tipo: 'SALDO_INCONSISTENTE',
+          linha: numeroLinha,
+          data: linha.dateStr,
+          cc: linha.cc || linha.subcc || '—',
+          credito: linha.credito,
+          debito: linha.debito,
+          saldoInformado: linha.saldo,
+          saldoCalculado: saldoCalculado,
+          diferenca: linha.saldo - saldoCalculado
+        });
+      }
     
-    // A partir da LINHA 3 (index 1): calcula saldo acumulado
-    saldoCalculado += linha.credito - linha.debito;
-    
-    // 1. SALDO INCONSISTENTE (crítico)
-    const diferenca = Math.abs(linha.saldo - saldoCalculado);
-    
-    if(diferenca > 0.01){ // Tolera diferença de 1 centavo por arredondamento
-      erros.push({
-        tipo: 'SALDO_INCONSISTENTE',
-        linha: numeroLinha,
-        data: linha.dateStr,
-        cc: linha.cc || linha.subcc || '—',
-        credito: linha.credito,
-        debito: linha.debito,
-        saldoInformado: linha.saldo,
-        saldoCalculado: saldoCalculado,
-        diferenca: linha.saldo - saldoCalculado
-      });
-    }
-    
-    // 2. CRÉDITO NEGATIVO (crítico)
-    if(linha.credito < 0){
-      erros.push({
-        tipo: 'CREDITO_NEGATIVO',
-        linha: numeroLinha,
-        data: linha.dateStr,
-        valor: linha.credito
-      });
-    }
-    
-    // 3. DÉBITO NEGATIVO (crítico)
-    if(linha.debito < 0){
-      erros.push({
-        tipo: 'DEBITO_NEGATIVO',
-        linha: numeroLinha,
-        data: linha.dateStr,
-        valor: linha.debito
-      });
-    }
-    
-    // 4. CAMPO OBRIGATÓRIO VAZIO (crítico)
-    if(!linha.cc && !linha.subcc){
-      erros.push({
-        tipo: 'CAMPO_VAZIO',
-        linha: numeroLinha,
-        data: linha.dateStr,
-        campo: 'Centro de Custo'
-      });
-    }
-    
-    // 5. DATA FUTURA (aviso)
-    if(linha.date > hoje){
-      const diasFuturos = Math.ceil((linha.date - hoje) / (1000*60*60*24));
-      avisos.push({
-        tipo: 'DATA_FUTURA',
-        linha: numeroLinha,
-        data: linha.dateStr,
-        diasFuturos: diasFuturos
-      });
-    }
-    
-    // 6. SEM MOVIMENTAÇÃO (aviso)
-    if(linha.credito === 0 && linha.debito === 0){
-      avisos.push({
-        tipo: 'SEM_MOVIMENTACAO',
-        linha: numeroLinha,
-        data: linha.dateStr
-      });
-    }
+      // 2. CRÉDITO NEGATIVO (crítico)
+      if(linha.credito < 0){
+        erros.push({
+          tipo: 'CREDITO_NEGATIVO',
+          linha: numeroLinha,
+          data: linha.dateStr,
+          valor: linha.credito
+        });
+      }
+      
+      // 3. DÉBITO NEGATIVO (crítico)
+      if(linha.debito < 0){
+        erros.push({
+          tipo: 'DEBITO_NEGATIVO',
+          linha: numeroLinha,
+          data: linha.dateStr,
+          valor: linha.debito
+        });
+      }
+      
+      // 4. CAMPO OBRIGATÓRIO VAZIO (crítico)
+      if(!linha.cc && !linha.subcc){
+        erros.push({
+          tipo: 'CAMPO_VAZIO',
+          linha: numeroLinha,
+          data: linha.dateStr,
+          campo: 'Centro de Custo'
+        });
+      }
+      
+      // 5. DATA FUTURA (aviso)
+      if(linha.date > hoje){
+        const diasFuturos = Math.ceil((linha.date - hoje) / (1000*60*60*24));
+        avisos.push({
+          tipo: 'DATA_FUTURA',
+          linha: numeroLinha,
+          data: linha.dateStr,
+          diasFuturos: diasFuturos
+        });
+      }
+      
+      // 6. SEM MOVIMENTAÇÃO (aviso)
+      if(linha.credito === 0 && linha.debito === 0){
+        avisos.push({
+          tipo: 'SEM_MOVIMENTACAO',
+          linha: numeroLinha,
+          data: linha.dateStr
+        });
+      }
+    } // Fecha o else
   });
   
   renderAuditoria(erros, avisos);
