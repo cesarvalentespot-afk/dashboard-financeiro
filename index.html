@@ -1457,16 +1457,37 @@ html, body { overflow-x: hidden; max-width: 100%; }
       <div class="kpi-hint">Crédito − Débito</div>
     </div>
 
-    <div class="kpi ka">
-      <div class="kpi-ico">
-        <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
-          <rect x="2" y="10" width="13" height="5" rx="1.5" stroke="#B45309" stroke-width="1.5"/>
-          <path d="M5.5 10V7a3 3 0 016 0v3" stroke="#B45309" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
+    <div class="kpi" style="grid-column: span 1;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+        <div class="kpi-ico" style="background:rgba(23,138,221,0.1)">
+          <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+            <rect x="2" y="4" width="13" height="10" rx="1.5" stroke="#178ADD" stroke-width="1.5"/>
+            <path d="M2 6.5h13M5.5 9h6M5.5 11.5h4" stroke="#178ADD" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="kpi-label" style="margin:0;font-size:12px">Evolução de Saldo</div>
       </div>
-      <div class="kpi-label">Saldo Atual</div>
-      <div class="kpi-val" id="kv-s">—</div>
-      <div class="kpi-hint">Última linha registrada</div>
+      
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;color:var(--t3);margin-bottom:3px;text-transform:uppercase;letter-spacing:0.3px">Saldo Inicial</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <div style="font-size:16px;font-weight:600;color:var(--t2)" id="kv-si">—</div>
+          <div style="font-size:9px;color:var(--t3)" id="kv-si-hint">—</div>
+        </div>
+      </div>
+      
+      <div style="background:rgba(23,138,221,0.08);border-radius:8px;padding:10px;margin-bottom:10px">
+        <div style="font-size:10px;color:#178ADD;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.3px;font-weight:600">Saldo Final</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <div style="font-size:22px;font-weight:700;color:#178ADD" id="kv-sf">—</div>
+          <div style="font-size:9px;color:#178ADD;opacity:0.7" id="kv-sf-hint">—</div>
+        </div>
+      </div>
+      
+      <div style="padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:10px;color:var(--t3)">Variação total</div>
+        <div style="font-size:12px;font-weight:600" id="kv-var">—</div>
+      </div>
     </div>
 
   </div><!-- fim #kpis -->
@@ -2352,17 +2373,47 @@ function renderKPIs(){
   var totC = d.reduce((s,r) => s + r.credito, 0);
   var totD = d.reduce((s,r) => s + r.debito,  0);
   var liq  = totC - totD;
-  var sal  = allData.length > 0 ? [...allData].sort((a,b) => b.date - a.date)[0]?.saldo ?? 0 : 0;
+  
+  /* ── Saldo Inicial e Final (sempre de allData) ── */
+  var saldoInicial = 0;
+  var saldoFinal = 0;
+  var linhaInicial = '—';
+  var linhaFinal = '—';
+  
+  if(allData.length > 0){
+    // Saldo Inicial: primeira linha (index 0 = linha 2 da planilha)
+    saldoInicial = allData[0].saldo;
+    linhaInicial = 'Linha 2';
+    
+    // Saldo Final: última linha por data (mais recente)
+    var dadosOrdenados = [...allData].sort((a,b) => b.date - a.date);
+    saldoFinal = dadosOrdenados[0].saldo;
+    // Encontra o index real na planilha (linha = index + 2)
+    var indexFinal = allData.findIndex(item => item.date.getTime() === dadosOrdenados[0].date.getTime() && item.saldo === dadosOrdenados[0].saldo);
+    linhaFinal = 'Linha ' + (indexFinal + 2);
+  }
+  
+  var variacao = saldoFinal - saldoInicial;
 
   /* ── KPIs linha 1 ── */
   document.getElementById('kv-c').textContent = R(totC);
   document.getElementById('kv-d').textContent = R(totD);
   var liqEl = document.getElementById('kv-l');
   liqEl.textContent = (liq >= 0 ? '+' : '') + R(liq);
-  var salEl = document.getElementById('kv-s');
-  salEl.textContent = R(sal);
-  var kpiSal = salEl.closest('.kpi');
-  if(kpiSal){ kpiSal.className = 'kpi ' + (sal >= 0 ? 'ka' : 'kr'); salEl.style.color = sal >= 0 ? 'var(--amber)' : 'var(--red)'; }
+  
+  /* ── Saldo Inicial ── */
+  document.getElementById('kv-si').textContent = R(saldoInicial);
+  document.getElementById('kv-si-hint').textContent = linhaInicial;
+  
+  /* ── Saldo Final ── */
+  document.getElementById('kv-sf').textContent = R(saldoFinal);
+  document.getElementById('kv-sf-hint').textContent = linhaFinal;
+  
+  /* ── Variação ── */
+  var varEl = document.getElementById('kv-var');
+  varEl.textContent = (variacao >= 0 ? '+' : '') + R(variacao);
+  varEl.style.color = variacao >= 0 ? 'var(--green)' : 'var(--red)';
+  
   var kpiLiq = document.getElementById('kpi-liq');
   kpiLiq.className = 'kpi ' + (liq >= 0 ? 'klp' : 'kln');
 
@@ -3312,7 +3363,14 @@ function buildFinancialContext(){
   var totC = d.reduce((s,r)=>s+r.credito,0);
   var totD = d.reduce((s,r)=>s+r.debito,0);
   var liq  = totC - totD;
-  var sal  = [...allData].sort((a,b)=>b.date-a.date)[0]?.saldo ?? 0;
+  
+  // Saldo Final: última linha por data de allData
+  var saldoFinal = 0;
+  if(allData.length > 0){
+    var dadosOrdenados = [...allData].sort((a,b) => b.date - a.date);
+    saldoFinal = dadosOrdenados[0].saldo;
+  }
+  
   var margem = totC>0 ? (liq/totC*100).toFixed(1) : '0';
   var cobertura = totD>0 ? (totC/totD).toFixed(2) : '∞';
 
@@ -3344,7 +3402,7 @@ function buildFinancialContext(){
 
   return {
     periodo: { inicio: fmtD(datas[0]), fim: fmtD(datas[datas.length-1]), dias, meses: meses.length, lancamentos: d.length },
-    totais:  { credito: R(totC), debito: R(totD), resultado: R(liq), saldo: R(sal), margem: margem+'%', cobertura: cobertura+'x' },
+    totais:  { credito: R(totC), debito: R(totD), resultado: R(liq), saldo: R(saldoFinal), margem: margem+'%', cobertura: cobertura+'x' },
     mensal:  { melhorMes: melhor?.mes, melhorValor: melhor?R(melhor.liq):'—', piorMes: pior?.mes, piorValor: pior?R(pior.liq):'—' },
     evMensal: meses.map(m=>`${m.mes}: crédito ${R(m.c)}, débito ${R(m.d)}, resultado ${R(m.liq)}`).join('\n'),
     topDebito:  topDebito.map(([k,v])=>`${k}: ${R(v.d)} (${v.n} lançamentos)`).join('\n'),
@@ -3511,7 +3569,13 @@ function renderAnalysis(){
   var margem     = totEntrada > 0 ? liq / totEntrada * 100 : 0;
   /* Taxa de saída = saídas / entradas (>100% = deficit) */
   var taxaSaida  = totEntrada > 0 ? totSaida / totEntrada * 100 : 0;
-  var saldoAt    = [...allData].sort((a,b)=>b.date-a.date)[0]?.saldo ?? 0;
+  
+  /* Saldo Final: última linha por data de allData */
+  var saldoAt = 0;
+  if(allData.length > 0){
+    var dadosOrdenados = [...allData].sort((a,b) => b.date - a.date);
+    saldoAt = dadosOrdenados[0].saldo;
+  }
 
   /* ── Análise mensal ── */
   var byM={};
